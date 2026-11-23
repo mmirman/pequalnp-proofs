@@ -103,6 +103,9 @@ theorem no_two_bit_bridge_summary
 
 open PEqualNP.CircuitLowerBounds
 
+lemma getD_ofFn (n : ℕ) (x : Fin n → Bool) (i : Fin n) :
+    (List.ofFn x).getD i.val false = x i := by simp
+
 def wiresFrom (gs : List Gate) (w : List Bool) : List Bool :=
   gs.foldl (fun w g => w ++ [g.op.eval (g.inputs.map fun i => w.getD i false)]) w
 
@@ -157,11 +160,13 @@ lemma correct_output_not_input (gs : List Gate) (out : ℕ)
   have h := hc (singleton p)
   change (wiresFrom gs (List.ofFn (singleton p))).getD out false = _ at h
   rw [ho, input_read _ _ _ (by simp), singleton_false] at h
-  have ht : (List.ofFn (singleton p)).getD p.val false = true := by simp [singleton]
+  have ht : (List.ofFn (singleton p)).getD p.val false = true := by
+    rw [getD_ofFn]
+    simp [singleton]
   rw [ht] at h
   cases h
 
-lemma pair_agree_except (p q : Fin 9) (hpq : p ≠ q) (a b c : Bool) (x : Input)
+lemma pair_agree_except (p q : Fin 9) (_hpq : p ≠ q) (a b c : Bool) (x : Input)
     (i : ℕ) (hi : i ≠ q.val) :
     (List.ofFn (setPair p q a b x)).getD i false =
       (List.ofFn (setPair p q a c x)).getD i false := by
@@ -182,7 +187,7 @@ theorem first_gate_must_reread (gs : List Gate) (g : Gate) (out : ℕ)
         (List.ofFn (setPair p q a true x)).getD i false)) :
     ∃ h ∈ gs, q.val ∈ h.inputs := by
   by_contra hn
-  push_neg at hn
+  push Not at hn
   obtain ⟨r, s, _, _, _, _, hprobe⟩ := pair_probes p q hpq
   let x0 := setPair p q a false (singleton s)
   let x1 := setPair p q a true (singleton s)
@@ -209,6 +214,7 @@ theorem first_and_rereads_second (gs : List Gate) (out : ℕ)
       (List.ofFn x) = edgeValue x) : ∃ h ∈ gs, q.val ∈ h.inputs := by
   apply first_gate_must_reread gs _ out p q hpq false hc
   intro x
+  simp only [List.map_cons, List.map_nil, getD_ofFn]
   simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
 
 theorem first_or_rereads_second (gs : List Gate) (out : ℕ)
@@ -217,6 +223,7 @@ theorem first_or_rereads_second (gs : List Gate) (out : ℕ)
       (List.ofFn x) = edgeValue x) : ∃ h ∈ gs, q.val ∈ h.inputs := by
   apply first_gate_must_reread gs _ out p q hpq true hc
   intro x
+  simp only [List.map_cons, List.map_nil, getD_ofFn]
   simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
 
 theorem first_and_rereads_both (gs : List Gate) (out : ℕ)
@@ -227,6 +234,7 @@ theorem first_and_rereads_both (gs : List Gate) (out : ℕ)
   constructor
   · apply first_gate_must_reread gs _ out q p hpq.symm false hc
     intro x
+    simp only [List.map_cons, List.map_nil, getD_ofFn]
     simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
   · exact first_and_rereads_second gs out p q hpq hc
 
@@ -238,6 +246,7 @@ theorem first_or_rereads_both (gs : List Gate) (out : ℕ)
   constructor
   · apply first_gate_must_reread gs _ out q p hpq.symm true hc
     intro x
+    simp only [List.map_cons, List.map_nil, getD_ofFn]
     simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
   · exact first_or_rereads_second gs out p q hpq hc
 
