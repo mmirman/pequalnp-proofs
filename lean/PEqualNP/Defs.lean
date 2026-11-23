@@ -53,6 +53,16 @@ import PEqualNP.Defs.CircuitMoves
 import PEqualNP.Defs.LowMerge
 import PEqualNP.Defs.NewLowMerge
 import PEqualNP.Defs.AffinePlane
+import PEqualNP.Defs.EdgeOwnership
+import PEqualNP.Defs.PencilGate
+import PEqualNP.Defs.BlindGate
+import PEqualNP.Defs.BicliqueBlockCost
+import PEqualNP.Defs.SharingOrder
+import PEqualNP.Defs.NotPremium
+import PEqualNP.Defs.NotBracket
+import PEqualNP.Defs.PairShadow
+import PEqualNP.Defs.InvisibleWire
+import PEqualNP.Defs.SharedOr
 
 /-!
 # The definitions root

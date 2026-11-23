@@ -187,4 +187,10 @@ ownRefused('a file name ending in _aux', `theorem PEqualNP.Outside.L_meta_9_aux 
 
 // The add_ rule's sentence names the way round for an honest proof line.
 refused('a proof line that begins with a lemma named add_...', `theorem PEqualNP.Outside.L_x_1 : True := by\n  exact\n    add_or_out\n`, 'may not BEGIN with a name that starts with add_');
+// A file-wide limit option is refused with the one fix named; anything else set file-wide gets no such hint.
+refused('a limit option set for the whole file', `set_option maxHeartbeats 400000\n${thm}`, 'write it as set_option <option> <value> in');
+refused('a file-wide option that is not a limit', `set_option autoImplicit true\n${thm}`, 'no options but the four limits');
+test('no limit hint for an option that is not a limit', () => {
+  assert.throws(() => run(`set_option autoImplicit true\n${thm}`), (e) => !e.message.includes('write it as set_option'));
+});
 refused('an add_ command still refused', `add_decl_doc Nat.succ\n${thm}`, '"add_decl_doc" is not allowed');
