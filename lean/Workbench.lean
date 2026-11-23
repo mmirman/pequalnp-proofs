@@ -36,4 +36,18 @@ theorem upper_correct : HasCircuitSize 9 target 16 := by
   · decide
   · decide
 
+def covers (s : Finset (Fin 9)) : Prop :=
+  (0 ∈ s ∨ 1 ∈ s) ∧ (1 ∈ s ∨ 2 ∈ s) ∧ (2 ∈ s ∨ 3 ∈ s) ∧
+  (3 ∈ s ∨ 4 ∈ s) ∧ (4 ∈ s ∨ 0 ∈ s) ∧ (0 ∈ s ∨ 5 ∈ s) ∧
+  (1 ∈ s ∨ 6 ∈ s) ∧ (2 ∈ s ∨ 7 ∈ s) ∧ (3 ∈ s ∨ 8 ∈ s) ∧
+  (5 ∈ s ∨ 7 ∈ s) ∧ (6 ∈ s ∨ 8 ∈ s) ∧ (8 ∈ s ∨ 5 ∈ s)
+
+set_option maxRecDepth 10000 in
+set_option maxHeartbeats 4000000 in
+theorem no_four_cover : ∀ s : Finset (Fin 9), s.card ≤ 4 → ¬ covers s := by
+  decide +kernel
+
+theorem five_cover : covers {0, 1, 3, 7, 8} := by
+  decide
+
 end PNPWorkbench
