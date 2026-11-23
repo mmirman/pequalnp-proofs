@@ -39,7 +39,7 @@ jobs:
             cp Workbench.lean PEqualNP/Outside/L_meta_1019.lean
             lake build PEqualNP.Outside.L_meta_1019 || pnp_result=1
           fi
-          for pnp_file in OneNotWorkbench.lean OwnershipObstruction.lean CofactorWorkbench.lean PivotBarrier.lean; do
+          for pnp_file in OneNotWorkbench.lean OwnershipObstruction.lean CofactorWorkbench.lean PivotBarrier.lean PivotGuard.lean; do
             if [ -f "$pnp_file" ]; then
               lake env lean "$pnp_file" || pnp_result=1
             fi

@@ -38,7 +38,10 @@ lemma second_moment {N : ℕ} (I : Fin N → Fin N → Prop) [DecidableRel I]
       intro l hl
       have hi (k : Fin N) : (if l = k then q + 1 else 1) =
           1 + if k = l then q else 0 := by
-        by_cases h : k = l <;> simp [h, eq_comm, Nat.add_comm]
+        by_cases h : k = l
+        · subst k
+          simp [Nat.add_comm]
+        · simp [h, Ne.symm h]
       simp only [hi, Finset.sum_add_distrib]
       simp [hl, Nat.add_comm]
     _ = R.card * (q + R.card) := by simp
