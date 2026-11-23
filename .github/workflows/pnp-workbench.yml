@@ -1,0 +1,39 @@
+name: pnp workbench
+on:
+  push:
+    branches: [pnp-ci]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Lean
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/elan" toolchain install "$(cat lean/lean-toolchain)"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            lean/.lake
+          key: pnp-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.toml') }}-${{ github.sha }}
+          restore-keys: |
+            pnp-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.toml') }}-
+      - name: Fetch prebuilt Mathlib
+        working-directory: lean
+        run: lake exe cache get
+      - name: Build project definitions
+        working-directory: lean
+        run: lake build PEqualNP.Defs
+      - name: Check current proof experiments
+        working-directory: lean
+        run: |
+          if [ -f Workbench.lean ]; then
+            lake env lean Workbench.lean
+          fi
