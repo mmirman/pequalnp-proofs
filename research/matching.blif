@@ -1,0 +1,16 @@
+.model cyclic_matchings
+.inputs a b c d e f
+.outputs y0 y1 y2
+.names a b c d e f y0
+1--1-- 1
+-1--1- 1
+--1--1 1
+.names a b c d e f y1
+1---1- 1
+-1---1 1
+--11-- 1
+.names a b c d e f y2
+1----1 1
+-1-1-- 1
+--1-1- 1
+.end
