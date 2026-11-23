@@ -107,4 +107,68 @@ theorem averaging_requires_q (q N m t : ℕ) (hq : 0 < q) (hN : 0 < N)
     nlinarith [hcover, hsum]
   exact Nat.le_of_mul_le_mul_left h (Nat.mul_pos hN hq)
 
+def nonincident {N : ℕ} (I : Fin N → Fin N → Prop) [DecidableRel I] :
+    Finset (Fin N × Fin N) := Finset.univ.filter (fun e => ¬ I e.1 e.2)
+
+def captures {N : ℕ} (I : Fin N → Fin N → Prop) [DecidableRel I]
+    (R : Finset (Fin N)) : Finset (Fin N × Fin N) :=
+  (Finset.univ.filter (fun p => degree I R p = 0)) ×ˢ R
+
+lemma nonincident_card {N : ℕ} (I : Fin N → Fin N → Prop) [DecidableRel I]
+    (q : ℕ) (hN : N = q * q + q + 1)
+    (hpoint : ∀ p, ∑ l, indicator I p l = q + 1) :
+    (nonincident I).card = N * q * q := by
+  have row (p : Fin N) : (∑ l : Fin N, if ¬ I p l then 1 else 0) = q * q := by
+    have he : (∑ l : Fin N, if ¬ I p l then 1 else 0) +
+        (∑ l : Fin N, indicator I p l) = N := by
+      rw [← Finset.sum_add_distrib]
+      calc
+        ∑ l : Fin N, ((if ¬ I p l then 1 else 0) + indicator I p l) =
+            ∑ _l : Fin N, 1 := by
+          apply Finset.sum_congr rfl
+          intro l hl
+          by_cases h : I p l <;> simp [indicator, h]
+        _ = N := by simp
+    rw [hpoint] at he
+    omega
+  simp only [nonincident, Finset.card_eq_sum_ones, Finset.sum_filter,
+    Fintype.sum_prod_type]
+  simp only [row, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
+  ring
+
+lemma count_covers {α : Type*} [DecidableEq α] (E : Finset α)
+    (m t : ℕ) (C : Fin m → Finset α)
+    (hcover : ∀ e ∈ E, t ≤ (Finset.univ.filter (fun i => e ∈ C i)).card) :
+    t * E.card ≤ ∑ i, (C i).card := by
+  have hs : t * E.card ≤ ∑ e ∈ E, (Finset.univ.filter (fun i => e ∈ C i)).card := by
+    calc
+      t * E.card = ∑ _e ∈ E, t := by simp [Nat.mul_comm]
+      _ ≤ _ := Finset.sum_le_sum hcover
+  have he : (∑ e ∈ E, (Finset.univ.filter (fun i => e ∈ C i)).card) =
+      ∑ i, (E.filter (fun e => e ∈ C i)).card := by
+    simp only [Finset.card_eq_sum_ones, Finset.sum_filter]
+    exact Finset.sum_comm
+  rw [he] at hs
+  refine hs.trans (Finset.sum_le_sum (fun i hi => Finset.card_le_card ?_))
+  intro e he
+  exact (Finset.mem_filter.mp he).2
+
+theorem no_constant_fraction_cover {N : ℕ} (I : Fin N → Fin N → Prop)
+    [DecidableRel I] (q m t : ℕ) (R : Fin m → Finset (Fin N))
+    (hq : 0 < q) (hN : N = q * q + q + 1)
+    (hline : ∀ l, ∑ p, indicator I p l = q + 1)
+    (hpoint : ∀ p, ∑ l, indicator I p l = q + 1)
+    (hmeet : ∀ l k, ∑ p, indicator I p l * indicator I p k =
+      if l = k then q + 1 else 1)
+    (hcover : ∀ e ∈ nonincident I,
+      t ≤ (Finset.univ.filter (fun i => e ∈ captures I (R i))).card) :
+    t * q ≤ m := by
+  apply averaging_requires_q q N m t hq (by omega)
+    (fun i => (captures I (R i)).card)
+  · intro i
+    have h := plane_empty_rectangle I q (R i) hN hline hmeet
+    simpa only [captures, Finset.card_product, Nat.mul_comm] using h
+  · have h := count_covers (nonincident I) m t (fun i => captures I (R i)) hcover
+    rwa [nonincident_card I q hN hpoint] at h
+
 end PEqualNP.Outside.PivotBarrier
