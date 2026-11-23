@@ -1178,6 +1178,54 @@ lemma count_gates (C : Circuit) (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : 
 lemma incidence : ∀ (l : Line) (p : Fin 13),
   p ∈ PEqualNP.Outside.L_meta_956.line l ↔ Inc l p := by decide +kernel
 
+lemma count_gates_with_not (C : Circuit) (hf : PEqualNP.MetaComplexity.FanInTwo C)
+    (hu : OnlyOne C)
+    (he : ∀ l : Line, ∃ o : ℕ, Exact l (wire C.gates o))
+    (n : Fin C.gates.length) (hn : (C.gates.get n).op = GateOp.not) :
+    27 ≤ C.gates.length := by
+  classical
+  choose o hout using he
+  choose i j hne hi hj using fun l => pair_gates C hf hu l (o l) (hout l)
+  let pair (p : Line × Bool) := if p.2 then i p.1 else j p.1
+  have good (p : Line × Bool) : Good p.1 (wire C.gates (13+(pair p).val)) := by
+    rcases p with ⟨l, b⟩
+    cases b
+    · exact hj l
+    · exact hi l
+  have pinj : Function.Injective pair := by
+    rintro ⟨l, b⟩ ⟨m, d⟩ h
+    have h1 := good (l, b)
+    rw [h] at h1
+    have hl : l = m := unique_line h1 (good (m, d))
+    subst m
+    cases b <;> cases d
+    · rfl
+    · exact (hne l h.symm).elim
+    · exact (hne l h).elim
+    · rfl
+  have pne (p : Line × Bool) : pair p ≠ n := by
+    intro h
+    have hg := good p
+    rw [h] at hg
+    exact good_rises hg (not_falls C hf hu n n.isLt hn)
+  let idx : Option (Line × Bool) → Fin C.gates.length
+    | none => n
+    | some p => pair p
+  have hinj : Function.Injective idx := by
+    intro a b h
+    cases a with
+    | none =>
+      cases b with
+      | none => rfl
+      | some q => exact (pne q h.symm).elim
+    | some p =>
+      cases b with
+      | none => exact (pne p h).elim
+      | some q => exact congrArg some (pinj h)
+  have hc : Fintype.card (Option (Line × Bool)) = 27 := by decide
+  have hle := Fintype.card_le_of_injective _ hinj
+  simpa only [hc, Fintype.card_fin] using hle
+
 end PEqualNP.Outside.L_meta_956.PartialCount
 
 namespace PEqualNP.Outside.L_meta_956
@@ -1212,5 +1260,49 @@ theorem lower26 (gs : List Gate) (out : Fin 13 → ℕ)
     exact ⟨c, hx⟩
   · rintro ⟨c, hc⟩
     exact ⟨PartialCount.point l c, (PartialCount.incidence l _).mpr ⟨c, rfl⟩, hc⟩
+
+theorem lower27 (gs : List Gate) (out : Fin 13 → ℕ)
+    (hg : ∀ g ∈ gs, (g.op = GateOp.and ∨ g.op = GateOp.or ∨ g.op = GateOp.not) ∧
+      g.inputs.length ≤ 2)
+    (hu : ∃ ι : Fin 1 → Fin gs.length, ∀ i : Fin gs.length,
+      (gs.get i).op = GateOp.not → ∃ j : Fin 1, ι j = i)
+    (he : ∀ (w : Fin 13) (x : Fin 13 → Bool),
+      Circuit.eval ⟨gs, out w⟩ (List.ofFn x) = lineOr w x) :
+    27 ≤ gs.length := by
+  classical
+  by_cases hn : ∃ n : Fin gs.length, (gs.get n).op = GateOp.not
+  · obtain ⟨n, hn⟩ := hn
+    let C : Circuit := ⟨gs, 0⟩
+    have hone : PartialCount.OnlyOne C := by
+      obtain ⟨ι, hι⟩ := hu
+      intro i j hi hj
+      obtain ⟨a, ha⟩ := hι i hi
+      obtain ⟨b, hb⟩ := hι j hj
+      exact ha.symm.trans ((congrArg ι (Subsingleton.elim a b)).trans hb)
+    apply PartialCount.count_gates_with_not C hg hone _ n hn
+    intro l
+    refine ⟨out l, ?_⟩
+    intro x
+    change Circuit.eval ⟨gs, out l⟩ (List.ofFn x) = true ↔ _
+    rw [he]
+    simp only [lineOr, decide_eq_true_eq]
+    constructor
+    · rintro ⟨p, hp, hx⟩
+      obtain ⟨c, rfl⟩ := (PartialCount.incidence l p).mp hp
+      exact ⟨c, hx⟩
+    · rintro ⟨c, hc⟩
+      exact ⟨PartialCount.point l c, (PartialCount.incidence l _).mpr ⟨c, rfl⟩, hc⟩
+  · have hmono : ∀ g ∈ gs,
+        (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2 := by
+      intro g hmem
+      have h := hg g hmem
+      refine ⟨?_, h.2⟩
+      rcases h.1 with ha | ho | ht
+      · exact Or.inl ha
+      · exact Or.inr ho
+      · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hmem
+        exact (hn ⟨⟨i, hi⟩, ht⟩).elim
+    have h := noNotLow gs out hmono (fun w x _ => he w x)
+    omega
 
 end PEqualNP.Outside.L_meta_956
