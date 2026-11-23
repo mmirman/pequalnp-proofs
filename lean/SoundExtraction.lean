@@ -6,7 +6,7 @@ namespace PEqualNP.Outside.SoundExtraction
 theorem extract {X : Type} (F : X → Bool → Bool) (h f : X → Bool)
     (hcorrect : ∀ x, F x (h x) = f x)
     (hsound : ∀ x, h x = true → f x = true) :
-    ∀ x, F x false || h x = f x := by
+    ∀ x, (F x false || h x) = f x := by
   intro x
   cases hh : h x with
   | false => simpa [hh] using hcorrect x
@@ -51,7 +51,7 @@ theorem residual_is_not_edge_deletion :
     body witness false = true ∧ remainingEdge witness = false := by
   decide +kernel
 
-theorem example_extracted : ∀ x, body x false || edge x = target x :=
+theorem example_extracted : ∀ x, (body x false || edge x) = target x :=
   extract body edge target example_correct example_sound
 
 end PEqualNP.Outside.SoundExtraction
