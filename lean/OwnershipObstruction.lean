@@ -45,10 +45,12 @@ def wire (i : ℕ) (x : Input) : Bool := Circuit.eval ⟨gates, i⟩ (List.ofFn 
 
 lemma fanInTwo : ∀ g ∈ gates,
     (g.op = GateOp.and ∨ g.op = GateOp.or ∨ g.op = GateOp.not) ∧
-    g.inputs.length ≤ 2 := by decide
+    g.inputs.length ≤ 2 := by simp [gates]
 
 lemma oneNot : ∀ i : Fin gates.length,
-    (gates.get i).op = GateOp.not ↔ i.val = 4 := by decide
+    (gates.get i).op = GateOp.not ↔ i.val = 4 := by
+  intro i
+  fin_cases i <;> simp [gates]
 
 set_option maxRecDepth 10000 in
 set_option maxHeartbeats 2000000 in
@@ -59,6 +61,7 @@ set_option maxRecDepth 10000 in
 set_option maxHeartbeats 2000000 in
 lemma only_two_good_gates : ∀ i : Fin gates.length,
     Good (wire (5 + i.val)) ↔ i.val = 5 ∨ i.val = 13 := by
+  simp only [Good, Low, High]
   decide +kernel
 
 lemma no_third_private_gate : ¬ ∃ i j k : Fin gates.length,
