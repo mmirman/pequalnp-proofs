@@ -47,3 +47,6 @@ jobs:
           if [ -f CofactorWorkbench.lean ]; then
             lake env lean CofactorWorkbench.lean
           fi
+          if [ -f PivotBarrier.lean ]; then
+            lake env lean PivotBarrier.lean
+          fi
