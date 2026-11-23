@@ -44,3 +44,6 @@ jobs:
           if [ -f OwnershipObstruction.lean ]; then
             lake env lean OwnershipObstruction.lean
           fi
+          if [ -f CofactorWorkbench.lean ]; then
+            lake env lean CofactorWorkbench.lean
+          fi
