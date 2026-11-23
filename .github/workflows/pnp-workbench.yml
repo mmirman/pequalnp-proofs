@@ -34,19 +34,14 @@ jobs:
       - name: Check current proof experiments
         working-directory: lean
         run: |
+          pnp_result=0
           if [ -f Workbench.lean ]; then
             cp Workbench.lean PEqualNP/Outside/L_meta_1019.lean
-            lake build PEqualNP.Outside.L_meta_1019
+            lake build PEqualNP.Outside.L_meta_1019 || pnp_result=1
           fi
-          if [ -f OneNotWorkbench.lean ]; then
-            lake env lean OneNotWorkbench.lean
-          fi
-          if [ -f OwnershipObstruction.lean ]; then
-            lake env lean OwnershipObstruction.lean
-          fi
-          if [ -f CofactorWorkbench.lean ]; then
-            lake env lean CofactorWorkbench.lean
-          fi
-          if [ -f PivotBarrier.lean ]; then
-            lake env lean PivotBarrier.lean
-          fi
+          for pnp_file in OneNotWorkbench.lean OwnershipObstruction.lean CofactorWorkbench.lean PivotBarrier.lean; do
+            if [ -f "$pnp_file" ]; then
+              lake env lean "$pnp_file" || pnp_result=1
+            fi
+          done
+          exit "$pnp_result"
