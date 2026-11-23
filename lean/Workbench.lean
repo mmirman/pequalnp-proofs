@@ -45,9 +45,11 @@ def covers (s : Finset (Fin 9)) : Prop :=
 set_option maxRecDepth 10000 in
 set_option maxHeartbeats 4000000 in
 theorem no_four_cover : ∀ s : Finset (Fin 9), s.card ≤ 4 → ¬ covers s := by
+  unfold covers
   decide +kernel
 
 theorem five_cover : covers {0, 1, 3, 7, 8} := by
+  unfold covers
   decide
 
 end PNPWorkbench
