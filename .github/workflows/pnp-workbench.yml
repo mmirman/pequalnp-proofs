@@ -14,7 +14,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install synthesis tool
-        run: sudo apt-get update -qq && sudo apt-get install -y berkeley-abc
+        run: sudo apt-get update -qq && sudo apt-get install -y yosys-abc
       - name: Explore and independently verify mapped circuits
         run: python3 research/abc_search.py
       - uses: actions/upload-artifact@v4

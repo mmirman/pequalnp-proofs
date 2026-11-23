@@ -1,7 +1,5 @@
 """Heuristic circuit search. A result is not an exhaustive certificate."""
-import itertools
 import random
-import re
 import subprocess
 from pathlib import Path
 
@@ -46,7 +44,7 @@ for attempt in range(100):
     output = Path(f'results/candidate_{attempt}.blif')
     script = (f'read_library research/and_or_not.genlib; read_blif research/matching.blif; '
               f'strash; {sequence}; map -a; print_stats; write_blif {output}')
-    result = subprocess.run(['berkeley-abc', '-c', script], capture_output=True, text=True, timeout=30)
+    result = subprocess.run(['yosys-abc', '-c', script], capture_output=True, text=True, timeout=30)
     if result.returncode or not output.exists():
         print(result.stdout, result.stderr, flush=True)
         raise RuntimeError('ABC mapping failed')
