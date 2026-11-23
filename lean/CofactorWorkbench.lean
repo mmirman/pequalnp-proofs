@@ -108,7 +108,10 @@ theorem upper_failure_witness {n : ℕ} (S : Finset (Fin n))
     h (outside S) = true ∧ F (outside S) true = true := by
   have hn : F (outside S) true ≠ false :=
     fun ho => hf ((upper_exact_iff S F h hm hc).mpr ho)
-  have ht : F (outside S) true = true := Bool.eq_true_iff.mpr hn
+  have ht : F (outside S) true = true := by
+    cases he : F (outside S) true with
+    | false => exact (hn he).elim
+    | true => rfl
   refine ⟨?_, ht⟩
   cases hh : h (outside S) with
   | true => rfl
