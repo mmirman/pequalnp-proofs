@@ -74,9 +74,12 @@ theorem empty_rectangle_bound {α : Type*} [DecidableEq α]
   · simp [hr]
   · have hrp : 0 < r := Nat.pos_of_ne_zero hr
     have hc : r * (q + 1)^2 ≤ T.card * (q + r) := by
-      apply Nat.le_of_mul_le_mul_left (a := r)
-      nlinarith [cs]
+      exact Nat.le_of_mul_le_mul_left
+        (show r * (r * (q + 1)^2) ≤ r * (T.card * (q + r)) from by
+          nlinarith [cs]) hrp
     change r * U.card ≤ q * P.card
+    have hp := congrArg (fun k : ℕ => k * (q + r)) hpart
+    have hn' := congrArg (fun k : ℕ => r * k) hn
     nlinarith [Nat.zero_le (U.card * q), Nat.zero_le (q * r)]
 
 theorem plane_empty_rectangle {N : ℕ} (I : Fin N → Fin N → Prop) [DecidableRel I]
@@ -102,6 +105,6 @@ theorem averaging_requires_q (q N m t : ℕ) (hq : 0 < q) (hN : 0 < N)
       _ = m * (q * N) := by simp
   have h : (N * q) * (t * q) ≤ (N * q) * m := by
     nlinarith [hcover, hsum]
-  exact (Nat.mul_le_mul_left (Nat.mul_pos hN hq)).mp h
+  exact Nat.le_of_mul_le_mul_left h (Nat.mul_pos hN hq)
 
 end PEqualNP.Outside.PivotBarrier
