@@ -150,4 +150,27 @@ theorem edge_count_of_used_points {N : ℕ} (I : Fin N → Fin N → Prop) [Deci
   have hc := used_card gs hf
   nlinarith
 
+theorem diagonal_bound_degree_fifty {N J : ℕ}
+    (I : Fin N → Fin N → Prop) [DecidableRel I]
+    (gs : List Gate) (fa fb : Fin J → ℕ) (E : Finset (Fin N × Fin N))
+    (hf : ∀ g ∈ gs, g.inputs.length ≤ 2)
+    (hd : ∀ p, (Finset.univ.filter (fun l => I p l)).card ≤ 50)
+    (hs : ∀ (j : Fin J) (z : Fin (N+N) → Bool),
+      (wiresFrom gs (List.ofFn z)).getD (fa j) false = true →
+      (wiresFrom gs (List.ofFn z)).getD (fb j) false = true →
+      ∃ p l : Fin N, I p l ∧ z (Fin.castAdd N p) = true ∧ z (Fin.natAdd N l) = true)
+    (he : ∀ e ∈ E, I e.1 e.2 ∧ ∃ j : Fin J,
+      (wiresFrom gs (List.ofFn (pair e.1 e.2))).getD (fa j) false = true ∧
+      (wiresFrom gs (List.ofFn (pair e.1 e.2))).getD (fb j) false = true ∧
+      (wiresFrom gs (List.ofFn (point e.1))).getD (fa j) false = false ∧
+      (wiresFrom gs (List.ofFn (point e.1))).getD (fb j) false = false) :
+    E.card ≤ 100 * gs.length := by
+  apply edge_count_of_used_points I gs E 50 hf hd
+  intro e he'
+  obtain ⟨hI, j, ha, hb, ha0, hb0⟩ := he e he'
+  refine ⟨hI, counted_point_is_used gs (fa j) (fb j) e.1 e.2 ?_ ha hb ha0 hb0⟩
+  intro z hz hz'
+  obtain ⟨p, l, _, hp, hl⟩ := hs j z hz hz'
+  exact ⟨p, l, hp, hl⟩
+
 end PEqualNP.Outside.BoundedDegreeDiagonal
