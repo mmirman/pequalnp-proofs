@@ -704,7 +704,7 @@ lemma eval_replace_not (pre post : List Gate) (ins : List ℕ) (o : ℕ)
       = false) :
     Circuit.eval ⟨pre ++ ⟨.not, ins⟩ :: post, o⟩ (List.ofFn x) =
     Circuit.eval ⟨pre ++ ⟨.and, []⟩ :: post, o⟩ (List.ofFn x) := by
-  have hb : !((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+  have hb : Bool.not ((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
       = true := by rw [hz]; rfl
   have h := congrArg (fun b : Bool =>
     (post.foldl (fun w g => w ++ [g.op.eval (g.inputs.map fun i => w.getD i false)])
