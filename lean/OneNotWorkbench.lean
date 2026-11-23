@@ -731,4 +731,22 @@ theorem highThreshold (pre post : List Gate) (ins : List ℕ) (out : Fin 13 → 
     (fun w x hx => (eval_replace_not pre post ins (out w) x (hz x hx)).symm.trans (he w x))
   simpa using h
 
+theorem smallTrigger (pre post : List Gate) (ins : List ℕ) (out : Fin 13 → ℕ)
+    (hpre : ∀ g ∈ pre, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2)
+    (hpost : ∀ g ∈ post, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2)
+    (he : ∀ (w : Fin 13) (x : Fin 13 → Bool),
+      Circuit.eval ⟨pre ++ ⟨.not, ins⟩ :: post, out w⟩ (List.ofFn x) = lineOr w x)
+    (hsize : (pre ++ ⟨GateOp.not, ins⟩ :: post).length ≤ 38) :
+    ∃ x : Fin 13 → Bool, weight x ≤ 3 ∧
+      ((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+        = true := by
+  by_contra! hn
+  have hz : ∀ x : Fin 13 → Bool, weight x ≤ 3 →
+      ((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+        = false := by
+    intro x hx
+    exact Bool.eq_false_iff.mpr (hn x hx)
+  have h := highThreshold pre post ins out hpre hpost hz he
+  omega
+
 end PEqualNP.Outside.L_meta_956
