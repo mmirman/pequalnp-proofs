@@ -1,4 +1,5 @@
 import Mathlib
+import PEqualNP.Defs
 
 namespace PEqualNP.Outside.PetersenInterfaces
 
@@ -99,5 +100,145 @@ theorem no_two_bit_bridge_summary
   intro h
   have hc := bridge_summary_needs_eight_states encode decode h
   norm_num at hc
+
+open PEqualNP.CircuitLowerBounds
+
+def wiresFrom (gs : List Gate) (w : List Bool) : List Bool :=
+  gs.foldl (fun w g => w ++ [g.op.eval (g.inputs.map fun i => w.getD i false)]) w
+
+lemma getD_snoc (w : List Bool) (b : Bool) (i : ℕ) :
+    (w ++ [b]).getD i false = if i = w.length then b else w.getD i false := by
+  by_cases he : i = w.length
+  · subst i
+    simp
+  · rw [if_neg he]
+    by_cases hi : i < w.length
+    · exact List.getD_append _ _ _ _ hi
+    · rw [List.getD_eq_default _ _ (by simp; omega),
+        List.getD_eq_default _ _ (by omega)]
+
+lemma unused_preserves (gs : List Gate) (k : ℕ)
+    (hu : ∀ g ∈ gs, k ∉ g.inputs) :
+    ∀ w w' : List Bool, w.length = w'.length →
+      (∀ i, i ≠ k → w.getD i false = w'.getD i false) →
+      ∀ i, i ≠ k → (wiresFrom gs w).getD i false = (wiresFrom gs w').getD i false := by
+  induction gs with
+  | nil => intro w w' hl he i hi; exact he i hi
+  | cons g gs ih =>
+    intro w w' hl he i hi
+    have hv : g.op.eval (g.inputs.map fun j => w.getD j false) =
+        g.op.eval (g.inputs.map fun j => w'.getD j false) := by
+      congr 1
+      apply List.map_congr_left
+      intro j hj
+      apply he j
+      intro h
+      exact hu g List.mem_cons_self (h ▸ hj)
+    apply ih (fun g' hg' => hu g' (List.mem_cons_of_mem g hg'))
+      (w ++ [_]) (w' ++ [_]) (by simp [hl]) _ i hi
+    intro j hj
+    rw [getD_snoc, getD_snoc, hl, hv, he j hj]
+
+lemma input_read (gs : List Gate) (w : List Bool) (i : ℕ) (hi : i < w.length) :
+    (wiresFrom gs w).getD i false = w.getD i false := by
+  induction gs generalizing w with
+  | nil => rfl
+  | cons g gs ih =>
+    change (wiresFrom gs (w ++ [_])).getD i false = _
+    rw [ih _ (by simp; omega), getD_snoc, if_neg (by omega)]
+
+lemma singleton_false : ∀ p : Fin 9, edgeValue (singleton p) = false := by
+  decide +kernel
+
+lemma correct_output_not_input (gs : List Gate) (out : ℕ)
+    (hc : ∀ x, (Circuit.mk gs out).eval (List.ofFn x) = edgeValue x) (p : Fin 9) :
+    out ≠ p.val := by
+  intro ho
+  have h := hc (singleton p)
+  change (wiresFrom gs (List.ofFn (singleton p))).getD out false = _ at h
+  rw [ho, input_read _ _ _ (by simp), singleton_false] at h
+  have ht : (List.ofFn (singleton p)).getD p.val false = true := by simp [singleton]
+  rw [ht] at h
+  cases h
+
+lemma pair_agree_except (p q : Fin 9) (hpq : p ≠ q) (a b c : Bool) (x : Input)
+    (i : ℕ) (hi : i ≠ q.val) :
+    (List.ofFn (setPair p q a b x)).getD i false =
+      (List.ofFn (setPair p q a c x)).getD i false := by
+  by_cases hn : i < 9
+  · rw [List.getD_eq_getElem _ _ (by simpa), List.getD_eq_getElem _ _ (by simpa)]
+    simp only [List.getElem_ofFn, setPair]
+    have hq : (⟨i, hn⟩ : Fin 9) ≠ q := fun h => hi (congrArg Fin.val h)
+    simp [hq]
+  · rw [List.getD_eq_default _ _ (by simp; omega), List.getD_eq_default _ _ (by simp; omega)]
+
+-- If the first gate loses a bit, some later gate must read that bit directly.
+theorem first_gate_must_reread (gs : List Gate) (g : Gate) (out : ℕ)
+    (p q : Fin 9) (hpq : p ≠ q) (a : Bool)
+    (hc : ∀ x, (Circuit.mk (g :: gs) out).eval (List.ofFn x) = edgeValue x)
+    (hg : ∀ x, g.op.eval (g.inputs.map fun i =>
+        (List.ofFn (setPair p q a false x)).getD i false) =
+      g.op.eval (g.inputs.map fun i =>
+        (List.ofFn (setPair p q a true x)).getD i false)) :
+    ∃ h ∈ gs, q.val ∈ h.inputs := by
+  by_contra hn
+  push_neg at hn
+  obtain ⟨r, s, _, _, _, _, hprobe⟩ := pair_probes p q hpq
+  let x0 := setPair p q a false (singleton s)
+  let x1 := setPair p q a true (singleton s)
+  have h0 : edgeValue x0 = false := (hprobe a false).2
+  have h1 : edgeValue x1 = true := (hprobe a true).2
+  have he : (Circuit.mk (g :: gs) out).eval (List.ofFn x0) =
+      (Circuit.mk (g :: gs) out).eval (List.ofFn x1) := by
+    change (wiresFrom gs ((List.ofFn x0) ++ [_])).getD out false =
+      (wiresFrom gs ((List.ofFn x1) ++ [_])).getD out false
+    apply unused_preserves gs q.val hn _ _ (by simp) _ out
+      (correct_output_not_input (g :: gs) out hc q)
+    intro i hi
+    rw [getD_snoc, getD_snoc]
+    have hv := hg (singleton s)
+    have hi' := pair_agree_except p q hpq a false true (singleton s) i hi
+    change (if i = 9 then _ else _) = (if i = 9 then _ else _)
+    rw [hv, hi']
+  rw [hc, hc, h0, h1] at he
+  cases he
+
+theorem first_and_rereads_second (gs : List Gate) (out : ℕ)
+    (p q : Fin 9) (hpq : p ≠ q)
+    (hc : ∀ x, (Circuit.mk (⟨GateOp.and, [p.val, q.val]⟩ :: gs) out).eval
+      (List.ofFn x) = edgeValue x) : ∃ h ∈ gs, q.val ∈ h.inputs := by
+  apply first_gate_must_reread gs _ out p q hpq false hc
+  intro x
+  simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
+
+theorem first_or_rereads_second (gs : List Gate) (out : ℕ)
+    (p q : Fin 9) (hpq : p ≠ q)
+    (hc : ∀ x, (Circuit.mk (⟨GateOp.or, [p.val, q.val]⟩ :: gs) out).eval
+      (List.ofFn x) = edgeValue x) : ∃ h ∈ gs, q.val ∈ h.inputs := by
+  apply first_gate_must_reread gs _ out p q hpq true hc
+  intro x
+  simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
+
+theorem first_and_rereads_both (gs : List Gate) (out : ℕ)
+    (p q : Fin 9) (hpq : p ≠ q)
+    (hc : ∀ x, (Circuit.mk (⟨GateOp.and, [p.val, q.val]⟩ :: gs) out).eval
+      (List.ofFn x) = edgeValue x) :
+    (∃ h ∈ gs, p.val ∈ h.inputs) ∧ (∃ h ∈ gs, q.val ∈ h.inputs) := by
+  constructor
+  · apply first_gate_must_reread gs _ out q p hpq.symm false hc
+    intro x
+    simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
+  · exact first_and_rereads_second gs out p q hpq hc
+
+theorem first_or_rereads_both (gs : List Gate) (out : ℕ)
+    (p q : Fin 9) (hpq : p ≠ q)
+    (hc : ∀ x, (Circuit.mk (⟨GateOp.or, [p.val, q.val]⟩ :: gs) out).eval
+      (List.ofFn x) = edgeValue x) :
+    (∃ h ∈ gs, p.val ∈ h.inputs) ∧ (∃ h ∈ gs, q.val ∈ h.inputs) := by
+  constructor
+  · apply first_gate_must_reread gs _ out q p hpq.symm true hc
+    intro x
+    simp [GateOp.eval, setPair, hpq, Ne.symm hpq]
+  · exact first_or_rereads_second gs out p q hpq hc
 
 end PEqualNP.Outside.PetersenInterfaces
