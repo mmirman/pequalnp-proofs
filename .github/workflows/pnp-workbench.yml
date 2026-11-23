@@ -22,7 +22,7 @@ jobs:
         with:
           path: |
             lean/.lake
-          key: pnp-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.toml') }}-${{ github.sha }}
+          key: pnp-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.toml') }}-stable
           restore-keys: |
             pnp-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.toml') }}-
       - name: Fetch prebuilt Mathlib
@@ -35,5 +35,6 @@ jobs:
         working-directory: lean
         run: |
           if [ -f Workbench.lean ]; then
-            lake env lean Workbench.lean
+            cp Workbench.lean PEqualNP/Outside/L_meta_1019.lean
+            lake build PEqualNP.Outside.L_meta_1019
           fi

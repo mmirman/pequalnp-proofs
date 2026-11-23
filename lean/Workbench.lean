@@ -108,14 +108,18 @@ lemma agree_trace (G : SimpleGraph V) (x y : V → Bool) (gs : List Gate) :
 
 def inputReps : List V := List.ofFn id
 
+lemma getD_ofFn {α : Type} (n : ℕ) (f : Fin n → α) (d : α) (j : Fin n) :
+    (List.ofFn f).getD j d = f j := by simp
+
 lemma agree_inputs (G : SimpleGraph V) (x y : V → Bool) :
     Agree G x y inputReps (List.ofFn x) (List.ofFn y) := by
   refine ⟨by simp [inputReps], by simp, ?_⟩
   intro j hj
   by_cases hjn : j < 13
-  · have hr : inputReps.getD j 0 = ⟨j, hjn⟩ := by simp [inputReps, hjn]
-    have hx : x ⟨j, hjn⟩ = y ⟨j, hjn⟩ := hj _ (by rw [hr]; exact .rfl)
-    simpa [hjn] using hx
+  · have hr : inputReps.getD j 0 = ⟨j, hjn⟩ := getD_ofFn 13 id 0 ⟨j, hjn⟩
+    have hx : x ⟨j, hjn⟩ = y ⟨j, hjn⟩ := hj _ (by rw [hr])
+    rw [getD_ofFn 13 x false ⟨j, hjn⟩, getD_ofFn 13 y false ⟨j, hjn⟩]
+    exact hx
   · rw [List.getD_eq_default _ _ (by simp; omega), List.getD_eq_default _ _ (by simp; omega)]
 
 lemma graph_reachable (E : List (Sym2 V)) (a b : V) (h : s(a, b) ∈ E) :
@@ -156,7 +160,7 @@ lemma component_bound (E : List (Sym2 V)) (A : Finset V)
     have hs : G.edgeSet ⊆ (E.toFinset : Set (Sym2 V)) := by
       rw [show G = SimpleGraph.fromEdgeSet (E.toFinset : Set (Sym2 V)) from rfl,
         SimpleGraph.edgeSet_fromEdgeSet]
-      exact Set.diff_subset
+      exact Set.sdiff_subset
     simpa only [Set.ncard_coe_finset] using Set.ncard_le_ncard hs
   have hEL := List.toFinset_card_le E
   omega
