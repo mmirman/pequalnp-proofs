@@ -698,4 +698,37 @@ lemma replacing_false_fails :
     (replacementExample ⟨.or, []⟩).eval [true, false, false] ≠ (true || false) := by
   decide
 
+lemma eval_replace_not (pre post : List Gate) (ins : List ℕ) (o : ℕ)
+    (x : Fin 13 → Bool)
+    (hz : ((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+      = false) :
+    Circuit.eval ⟨pre ++ ⟨.not, ins⟩ :: post, o⟩ (List.ofFn x) =
+    Circuit.eval ⟨pre ++ ⟨.and, []⟩ :: post, o⟩ (List.ofFn x) := by
+  have hb : !((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+      = true := by rw [hz]; rfl
+  have h := congrArg (fun b : Bool =>
+    (post.foldl (fun w g => w ++ [g.op.eval (g.inputs.map fun i => w.getD i false)])
+      (Circuit.wires ⟨pre, 0⟩ (List.ofFn x) ++ [b])).getD o false) hb
+  simpa only [Circuit.eval, Circuit.wires, List.foldl_append, List.foldl_cons,
+    GateOp.eval, List.map_nil, List.all_nil] using h
+
+theorem highThreshold (pre post : List Gate) (ins : List ℕ) (out : Fin 13 → ℕ)
+    (hpre : ∀ g ∈ pre, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2)
+    (hpost : ∀ g ∈ post, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2)
+    (hz : ∀ x : Fin 13 → Bool, weight x ≤ 3 →
+      ((ins.map fun i => (Circuit.wires ⟨pre, 0⟩ (List.ofFn x)).getD i false).headD false)
+        = false)
+    (he : ∀ (w : Fin 13) (x : Fin 13 → Bool),
+      Circuit.eval ⟨pre ++ ⟨.not, ins⟩ :: post, out w⟩ (List.ofFn x) = lineOr w x) :
+    39 ≤ (pre ++ ⟨GateOp.not, ins⟩ :: post).length := by
+  have h := noNotLow (pre ++ ⟨GateOp.and, []⟩ :: post) out (by
+    intro g hg
+    rcases List.mem_append.mp hg with h | h
+    · exact hpre g h
+    · rcases List.mem_cons.mp h with rfl | h
+      · exact ⟨Or.inl rfl, by simp⟩
+      · exact hpost g h)
+    (fun w x hx => (eval_replace_not pre post ins (out w) x (hz x hx)).symm.trans (he w x))
+  simpa using h
+
 end PEqualNP.Outside.L_meta_956
