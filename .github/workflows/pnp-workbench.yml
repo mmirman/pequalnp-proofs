@@ -42,7 +42,7 @@ jobs:
             lake build PEqualNP.Outside.L_meta_1019 || pnp_result=1
           fi
           # BoundedDegreeDiagonal.lean remains an unverified draft after its lease was invalidated.
-          for pnp_file in OneNotWorkbench.lean OwnershipObstruction.lean CofactorWorkbench.lean PivotBarrier.lean PivotGuard.lean InterfaceWorkbench.lean SoundExtraction.lean TripleFamily.lean NetMaskIdentity.lean PetersenOrInterface.lean LineDegreeBarrier.lean PairCleaning.lean; do
+          for pnp_file in OneNotWorkbench.lean OwnershipObstruction.lean CofactorWorkbench.lean PivotBarrier.lean PivotGuard.lean InterfaceWorkbench.lean SoundExtraction.lean TripleFamily.lean NetMaskIdentity.lean PetersenOrInterface.lean LineDegreeBarrier.lean PairCleaning.lean AndAncestor.lean; do
             if [ -f "$pnp_file" ]; then
               lake env lean "$pnp_file" || pnp_result=1
             fi
