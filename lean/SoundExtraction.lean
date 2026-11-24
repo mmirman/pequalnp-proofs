@@ -26,6 +26,43 @@ theorem residual_agrees_off_signal {X : Type} (F : X → Bool → Bool) (h f : X
   intro x hx
   simpa only [hx] using hcorrect x
 
+-- A positive continuation permits a signal to grow, provided it stays below the target.
+theorem widen_sound {X : Type} (F : X → Bool → Bool) (q h f : X → Bool)
+    (hpositive : ∀ x, F x false = true → F x true = true)
+    (hcorrect : ∀ x, F x (q x) = f x)
+    (hqh : ∀ x, q x = true → h x = true)
+    (hsound : ∀ x, h x = true → f x = true) :
+    ∀ x, F x (h x) = f x := by
+  intro x
+  cases hq : q x with
+  | false =>
+    cases hh : h x with
+    | false => simpa [hq, hh] using hcorrect x
+    | true =>
+      have hf : f x = true := hsound x hh
+      have hF : F x false = true := by simpa [hq, hf] using hcorrect x
+      simpa [hh, hf] using hpositive x hF
+  | true =>
+    have hh := hqh x hq
+    simpa [hq, hh] using hcorrect x
+
+-- If one factor is sound, a positive continuation does not need the other factor.
+theorem bypass_sound_and {X : Type} (F : X → Bool → Bool) (h k f : X → Bool)
+    (hpositive : ∀ x, F x false = true → F x true = true)
+    (hcorrect : ∀ x, F x (h x && k x) = f x)
+    (hsound : ∀ x, h x = true → f x = true) :
+    ∀ x, F x (h x) = f x := by
+  apply widen_sound F (fun x => h x && k x) h f hpositive hcorrect
+  · intro x hx
+    exact (Bool.and_eq_true.mp hx).1
+  · exact hsound
+
+-- Soundness alone is not enough when the continuation can negate the signal.
+theorem widening_requires_a_positive_continuation :
+    ∃ (F : Bool → Bool) (q h f : Bool),
+      F q = f ∧ (q = true → h = true) ∧ (h = true → f = true) ∧ F h ≠ f := by
+  exact ⟨Bool.not, false, true, true, by decide⟩
+
 abbrev Input := Fin 5 → Bool
 
 def edge (x : Input) := x 0 && x 1
