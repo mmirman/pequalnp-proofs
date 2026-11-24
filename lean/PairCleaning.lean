@@ -279,11 +279,11 @@ def binary (isAnd : Bool) (a b : Bool) : Bool :=
   if isAnd then a && b else a || b
 
 theorem dirty_rectangle_can_be_filtered : ∀ x : Fin 4 → Bool,
-    ((x 0 || x 1) && (x 2 || x 3)) && (x 0 || x 2) = pathTarget x := by
+    (((x 0 || x 1) && (x 2 || x 3)) && (x 0 || x 2)) = pathTarget x := by
   decide +kernel
 
 theorem clean_path_four_gate_expression : ∀ x : Fin 4 → Bool,
-    (x 0 && (x 2 || x 3)) || (x 1 && x 2) = pathTarget x := by
+    ((x 0 && (x 2 || x 3)) || (x 1 && x 2)) = pathTarget x := by
   decide +kernel
 
 theorem rectangle_cleaning_needs_more_than_one_available_gate :
