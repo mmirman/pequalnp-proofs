@@ -537,4 +537,38 @@ theorem affine_lower_bound_with_not (C : Circuit) (out : Fin 9 → ℕ)
   change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
   rw [he, decide_eq_true_eq]
 
+theorem affine_search_is_impossible : ¬ (∃ C : Circuit, ∃ o : Fin 3 → Fin 3 → ℕ,
+    PEqualNP.MetaComplexity.FanInTwo C ∧
+    (∀ i j : Fin C.gates.length, (C.gates.get i).op = GateOp.not →
+      (C.gates.get j).op = GateOp.not → i = j) ∧
+    C.size ≤ 18 ∧
+    (C.size = 18 → ∃ i : Fin C.gates.length, (C.gates.get i).op = GateOp.not) ∧
+    ∀ x : Fin 9 → Bool, ∀ a b : Fin 3,
+      ((C.wires (List.ofFn x)).getD (o a b) false = true ↔
+        ∃ c : Fin 3, ∃ k : Fin 9,
+          (k : ℕ) = 3 * (c : ℕ) + ((a * c + b : Fin 3) : ℕ) ∧ x k = true)) := by
+  rintro ⟨C, o, hf, hu, hsize, hasNot, he⟩
+  let out (l : Fin 9) : ℕ :=
+    o ⟨l.val / 3, by omega⟩ ⟨l.val % 3, Nat.mod_lt _ (by decide)⟩
+  have correct : ∀ l : Fin 9, ∃ w : ℕ, Exact affinePoint l (wire C.gates w) := by
+    intro l
+    refine ⟨out l, ?_⟩
+    intro x
+    change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
+    dsimp [out]
+    rw [he]
+    constructor
+    · rintro ⟨c, k, hk, hx⟩
+      have hke : k = affinePoint l c := Fin.ext hk
+      exact ⟨c, hke ▸ hx⟩
+    · rintro ⟨c, hc⟩
+      exact ⟨c, affinePoint l c, rfl, hc⟩
+  have hbound := count_gates affine_injective affine_separated C hf hu correct
+  have hlen : C.gates.length = 18 := by
+    change C.gates.length ≤ 18 at hsize
+    omega
+  obtain ⟨ng, hn⟩ := hasNot hlen
+  have hstrict := count_gates_with_not affine_injective affine_separated C hf hu correct ng hn
+  omega
+
 end PEqualNP.Outside.LinearTripleFamily
