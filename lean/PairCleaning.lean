@@ -187,4 +187,85 @@ theorem two_gate_star_cleaning {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel
     (continuation_positive a b gs out hg) (cleanStar_positive G b c)
     (cleanStar_below G a b c) (cleanStar_pairs G a b c hca hcb hbad) hcorrect
 
+def original {n : ℕ} (a b c : Fin n) (gs : List Gate) (out : ℕ) : Circuit :=
+  ⟨⟨GateOp.or, [a, b]⟩ :: ⟨GateOp.and, [c, n]⟩ :: gs, out⟩
+
+def cleaned {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (gs : List Gate) (out : ℕ) : Circuit :=
+  ⟨⟨GateOp.or, [a, b]⟩ ::
+    (if G.Adj c b then ⟨GateOp.and, [c, b]⟩ else ⟨GateOp.or, []⟩) :: gs, out⟩
+
+lemma read_ofFn {n : ℕ} (x : Fin n → Bool) (i : Fin n) :
+    (List.ofFn x).getD i false = x i := by
+  rw [List.getD_eq_getElem _ _ (by simp)]
+  simp
+
+lemma read_ofFn_snoc {n : ℕ} (x : Fin n → Bool) (i : Fin n) (b : Bool) :
+    (List.ofFn x ++ [b]).getD i false = x i := by
+  rw [List.getD_append _ _ _ _ (by simp), read_ofFn]
+
+lemma read_ofFn_last {n : ℕ} (x : Fin n → Bool) (b : Bool) :
+    (List.ofFn x ++ [b]).getD n false = b := by
+  rw [List.getD_append_right _ _ _ _ (by simp)]
+  simp
+
+lemma original_eval {n : ℕ} (a b c : Fin n) (gs : List Gate) (out : ℕ)
+    (x : Fin n → Bool) :
+    (original a b c gs out).eval (List.ofFn x) =
+      continuation a b gs out x (star a b c x) := by
+  simp only [original, Circuit.eval, Circuit.wires, List.foldl_cons,
+    GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
+    List.all_cons, List.all_nil, id_eq, Bool.or_false, Bool.and_true,
+    read_ofFn, read_ofFn_snoc, read_ofFn_last]
+  simp only [continuation, Run, star, List.append_assoc, List.singleton_append, List.nil_append]
+
+lemma cleaned_eval {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (gs : List Gate) (out : ℕ) (x : Fin n → Bool) :
+    (cleaned G a b c gs out).eval (List.ofFn x) =
+      continuation a b gs out x (cleanStar G b c x) := by
+  by_cases hcb : G.Adj c b
+  · simp only [cleaned, if_pos hcb, Circuit.eval, Circuit.wires, List.foldl_cons,
+      GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
+      List.all_cons, List.all_nil, id_eq, Bool.or_false, Bool.and_true,
+      read_ofFn, read_ofFn_snoc, cleanStar, if_pos hcb]
+    simp only [continuation, Run, List.append_assoc, List.singleton_append, List.nil_append]
+  · simp only [cleaned, if_neg hcb, Circuit.eval, Circuit.wires, List.foldl_cons,
+      GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
+      id_eq, Bool.or_false, read_ofFn, cleanStar, if_neg hcb]
+    simp only [continuation, Run, List.append_assoc, List.singleton_append, List.nil_append]
+
+theorem same_size_circuit_cleaning {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (hca : c ≠ a) (hcb : c ≠ b) (hbad : ¬ G.Adj c a)
+    (gs : List Gate) (out : ℕ)
+    (hg : ∀ g ∈ gs, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2)
+    (hcorrect : ∀ x, (original a b c gs out).eval (List.ofFn x) = target G x) :
+    (cleaned G a b c gs out).size = (original a b c gs out).size ∧
+    PEqualNP.MetaComplexity.Monotone2 (cleaned G a b c gs out) ∧
+    ∀ x, (cleaned G a b c gs out).eval (List.ofFn x) = target G x := by
+  refine ⟨rfl, ?_, ?_⟩
+  · intro g hmem
+    simp only [cleaned, List.mem_cons] at hmem
+    rcases hmem with rfl | rfl | hmem
+    · simp
+    · split_ifs <;> simp
+    · simpa only [Set.mem_insert_iff, Set.mem_singleton_iff] using hg g hmem
+  · intro x
+    rw [cleaned_eval]
+    apply two_gate_star_cleaning G a b c hca hcb hbad gs out
+      (fun g hg' => (hg g hg').1)
+    intro y
+    simpa only [original_eval] using hcorrect y
+
+theorem every_wire_decreases {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (gs : List Gate) (out : ℕ)
+    (hg : ∀ g ∈ gs, g.op = GateOp.and ∨ g.op = GateOp.or) :
+    ∀ x w, ((cleaned G a b c gs out).wires (List.ofFn x)).getD w false = true →
+      ((original a b c gs out).wires (List.ofFn x)).getD w false = true := by
+  intro x w
+  change (cleaned G a b c gs w).eval (List.ofFn x) = true →
+    (original a b c gs w).eval (List.ofFn x) = true
+  rw [cleaned_eval, original_eval]
+  exact continuation_positive a b gs w hg x x (fun _ hi => hi) _ _
+    (cleanStar_below G a b c x)
+
 end PEqualNP.Outside.PairCleaning
