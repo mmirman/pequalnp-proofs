@@ -65,6 +65,7 @@ lemma no_and_factor_is_sound : ∀ j : Fin 10,
     (circuit.gates.get j).op = GateOp.and →
       ∀ w ∈ (circuit.gates.get j).inputs,
         ∃ x : Fin 5 → Bool, value x w = true ∧ target x = false := by
+  intro j
   fin_cases j <;> simp [circuit] <;> decide +kernel
 
 lemma output_line_degree : circuit.lineDeg 5 {1, 2, 3, 4} = 4 := by
