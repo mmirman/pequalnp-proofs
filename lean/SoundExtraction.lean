@@ -54,7 +54,7 @@ theorem bypass_sound_and {X : Type} (F : X → Bool → Bool) (h k f : X → Boo
     ∀ x, F x (h x) = f x := by
   apply widen_sound F (fun x => h x && k x) h f hpositive hcorrect
   · intro x hx
-    exact (Bool.and_eq_true.mp hx).1
+    cases hh : h x <;> simp_all
   · exact hsound
 
 -- Soundness alone is not enough when the continuation can negate the signal.
