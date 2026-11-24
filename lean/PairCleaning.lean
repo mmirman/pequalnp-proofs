@@ -268,4 +268,26 @@ theorem every_wire_decreases {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G
   exact continuation_positive a b gs w hg x x (fun _ hi => hi) _ _
     (cleanStar_below G a b c x)
 
+def pathTarget (x : Fin 4 → Bool) : Bool :=
+  (x 0 && x 2) || (x 0 && x 3) || (x 1 && x 2)
+
+def earlyWires (x : Fin 4 → Bool) : Fin 6 → Bool :=
+  ![x 0, x 1, x 2, x 3, x 0 || x 1, x 2 || x 3]
+
+def binary (isAnd : Bool) (a b : Bool) : Bool :=
+  if isAnd then a && b else a || b
+
+theorem dirty_rectangle_can_be_filtered : ∀ x : Fin 4 → Bool,
+    ((x 0 || x 1) && (x 2 || x 3)) && (x 0 || x 2) = pathTarget x := by
+  decide +kernel
+
+theorem clean_path_four_gate_expression : ∀ x : Fin 4 → Bool,
+    (x 0 && (x 2 || x 3)) || (x 1 && x 2) = pathTarget x := by
+  decide +kernel
+
+theorem rectangle_cleaning_needs_more_than_one_available_gate :
+    ∀ i j : Fin 6, ∀ isAnd : Bool,
+      ¬ ∀ x : Fin 4 → Bool, binary isAnd (earlyWires x i) (earlyWires x j) = pathTarget x := by
+  decide +kernel
+
 end PEqualNP.Outside.PairCleaning
