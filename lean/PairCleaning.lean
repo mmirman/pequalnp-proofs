@@ -218,7 +218,7 @@ lemma original_eval {n : ℕ} (a b c : Fin n) (gs : List Gate) (out : ℕ)
     GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
     List.all_cons, List.all_nil, id_eq, Bool.or_false, Bool.and_true,
     read_ofFn, read_ofFn_snoc, read_ofFn_last]
-  simp only [continuation, Run, star, List.append_assoc, List.singleton_append, List.nil_append]
+  simp only [continuation, Run, GateOp.eval, star, List.append_assoc, List.singleton_append, List.nil_append]
 
 lemma cleaned_eval {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
     (a b c : Fin n) (gs : List Gate) (out : ℕ) (x : Fin n → Bool) :
@@ -229,11 +229,11 @@ lemma cleaned_eval {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
       GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
       List.all_cons, List.all_nil, id_eq, Bool.or_false, Bool.and_true,
       read_ofFn, read_ofFn_snoc, cleanStar, if_pos hcb]
-    simp only [continuation, Run, List.append_assoc, List.singleton_append, List.nil_append]
+    simp only [continuation, Run, GateOp.eval, List.append_assoc, List.singleton_append, List.nil_append]
   · simp only [cleaned, if_neg hcb, Circuit.eval, Circuit.wires, List.foldl_cons,
       GateOp.eval, List.map_cons, List.map_nil, List.any_cons, List.any_nil,
       id_eq, Bool.or_false, read_ofFn, cleanStar, if_neg hcb]
-    simp only [continuation, Run, List.append_assoc, List.singleton_append, List.nil_append]
+    simp only [continuation, Run, GateOp.eval, List.append_assoc, List.singleton_append, List.nil_append]
 
 theorem same_size_circuit_cleaning {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
     (a b c : Fin n) (hca : c ≠ a) (hcb : c ≠ b) (hbad : ¬ G.Adj c a)
@@ -260,7 +260,7 @@ theorem same_size_circuit_cleaning {n : ℕ} (G : SimpleGraph (Fin n)) [Decidabl
 theorem every_wire_decreases {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
     (a b c : Fin n) (gs : List Gate) (out : ℕ)
     (hg : ∀ g ∈ gs, g.op = GateOp.and ∨ g.op = GateOp.or) :
-    ∀ x w, ((cleaned G a b c gs out).wires (List.ofFn x)).getD w false = true →
+    ∀ (x : Fin n → Bool) (w : ℕ), ((cleaned G a b c gs out).wires (List.ofFn x)).getD w false = true →
       ((original a b c gs out).wires (List.ofFn x)).getD w false = true := by
   intro x w
   change (cleaned G a b c gs w).eval (List.ofFn x) = true →
