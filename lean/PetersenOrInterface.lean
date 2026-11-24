@@ -37,6 +37,7 @@ theorem retained_or_needs_nine_states {α : Type*} [Fintype α]
     9 ≤ Fintype.card α := by
   have injective : Function.Injective (fun i : Fin 9 => encode (state i)) := by
     intro i j same
+    change encode (state i) = encode (state j) at same
     apply probes_distinguish i j
     intro r
     rw [← correct, ← correct, state_or_true, state_or_true, same]
