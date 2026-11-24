@@ -35,6 +35,8 @@ jobs:
         working-directory: lean
         run: |
           pnp_result=0
+          lake build PEqualNP.Outside.L_meta_1044 || pnp_result=1
+          lake env lean AssignmentAudit.lean || pnp_result=1
           if [ -f Workbench.lean ]; then
             cp Workbench.lean PEqualNP/Outside/L_meta_1019.lean
             lake build PEqualNP.Outside.L_meta_1019 || pnp_result=1
