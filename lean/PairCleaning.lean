@@ -291,4 +291,188 @@ theorem rectangle_cleaning_needs_more_than_one_available_gate :
       ¬ ∀ x : Fin 4 → Bool, binary isAnd (earlyWires x i) (earlyWires x j) = pathTarget x := by
   decide +kernel
 
+def negativeActivations {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (k : ℕ) (C : Circuit) : Finset ((Fin n → Bool) × Fin (n + k)) :=
+  Finset.univ.filter fun p => target G p.1 = false ∧
+    (C.wires (List.ofFn p.1)).getD p.2 false = true
+
+def dirt {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (k : ℕ) (C : Circuit) : ℕ := (negativeActivations G k C).card
+
+lemma dirt_strict_of_down {n k : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (C D : Circuit)
+    (hdown : ∀ (x : Fin n → Bool) (i : ℕ),
+      (D.wires (List.ofFn x)).getD i false = true →
+      (C.wires (List.ofFn x)).getD i false = true)
+    (x : Fin n → Bool) (i : Fin (n + k)) (hx : target G x = false)
+    (hC : (C.wires (List.ofFn x)).getD i false = true)
+    (hD : (D.wires (List.ofFn x)).getD i false = false) :
+    dirt G k D < dirt G k C := by
+  apply Finset.card_lt_card
+  apply Finset.ssubset_iff_subset_ne.mpr
+  constructor
+  · intro p hp
+    simp only [negativeActivations, Finset.mem_filter, Finset.mem_univ, true_and] at hp ⊢
+    exact ⟨hp.1, hdown p.1 p.2 hp.2⟩
+  · intro heq
+    have hp : (x, i) ∈ negativeActivations G k C := by
+      exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hx, hC⟩
+    rw [← heq] at hp
+    have ht := (Finset.mem_filter.mp hp).2.2
+    rw [hD] at ht
+    contradiction
+
+lemma run_preserves_prefix (gs : List Gate) (xs : List Bool) (i : ℕ)
+    (hi : i < xs.length) : (Run gs xs).getD i false = xs.getD i false := by
+  induction gs generalizing xs with
+  | nil => rfl
+  | cons g gs ih =>
+    change (Run gs (xs ++ [_])).getD i false = xs.getD i false
+    rw [ih _ (by simpa using Nat.lt_succ_of_lt hi), List.getD_append _ _ _ _ hi]
+
+lemma continuation_second_wire {n : ℕ} (a b : Fin n) (gs : List Gate)
+    (x : Fin n → Bool) (h : Bool) : continuation a b gs (n + 1) x h = h := by
+  unfold continuation
+  rw [run_preserves_prefix _ _ _ (by simp)]
+  rw [List.getD_append_right _ _ _ _ (by simp)]
+  simp
+
+lemma nonedge_pair_false {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a c : Fin n) (hbad : ¬ G.Adj c a) : target G (pair c a) = false := by
+  apply Bool.eq_false_iff.mpr
+  intro h
+  simp only [target, decide_eq_true_eq] at h
+  obtain ⟨u, v, huv, hu, hv⟩ := h
+  simp only [pair, decide_eq_true_eq] at hu hv
+  rcases hu with rfl | rfl <;> rcases hv with rfl | rfl
+  · exact G.ne_of_adj huv rfl
+  · exact hbad huv
+  · exact hbad (G.adj_symm huv)
+  · exact G.ne_of_adj huv rfl
+
+lemma cleanStar_nonedge_pair {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (hcb : c ≠ b) (hbad : ¬ G.Adj c a) :
+    cleanStar G b c (pair c a) = false := by
+  by_cases hba : b = a
+  · subst b
+    simp [cleanStar, hbad]
+  · simp [cleanStar, pair, Ne.symm hcb, hba]
+
+theorem early_star_strictly_reduces_dirt {n : ℕ}
+    (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (hcb : c ≠ b) (hbad : ¬ G.Adj c a)
+    (gs : List Gate) (out : ℕ)
+    (hg : ∀ g ∈ gs, g.op = GateOp.and ∨ g.op = GateOp.or) :
+    dirt G (gs.length + 2) (cleaned G a b c gs out) <
+      dirt G (gs.length + 2) (original a b c gs out) := by
+  apply dirt_strict_of_down G _ _ (every_wire_decreases G a b c gs out hg)
+    (pair c a) ⟨n + 1, by omega⟩ (nonedge_pair_false G a c hbad)
+  · change (original a b c gs (n + 1)).eval (List.ofFn (pair c a)) = true
+    rw [original_eval, continuation_second_wire]
+    simp [star, pair]
+  · change (cleaned G a b c gs (n + 1)).eval (List.ofFn (pair c a)) = false
+    rw [cleaned_eval, continuation_second_wire]
+    exact cleanStar_nonedge_pair G a b c hcb hbad
+
+theorem exists_least_dirt {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (C : Circuit) (hmono : PEqualNP.MetaComplexity.Monotone2 C)
+    (hc : ∀ x, C.eval (List.ofFn x) = target G x) :
+    ∃ D : Circuit, PEqualNP.MetaComplexity.Monotone2 D ∧ D.size = C.size ∧
+      (∀ x, D.eval (List.ofFn x) = target G x) ∧
+      ∀ E : Circuit, PEqualNP.MetaComplexity.Monotone2 E → E.size = C.size →
+        (∀ x, E.eval (List.ofFn x) = target G x) → dirt G C.size D ≤ dirt G C.size E := by
+  classical
+  have hex : ∃ m : ℕ, ∃ D : Circuit, PEqualNP.MetaComplexity.Monotone2 D ∧
+      D.size = C.size ∧ (∀ x, D.eval (List.ofFn x) = target G x) ∧ dirt G C.size D = m :=
+    ⟨dirt G C.size C, C, hmono, rfl, hc, rfl⟩
+  obtain ⟨D, hD, hsize, hcorrect, hd⟩ := Nat.find_spec hex
+  refine ⟨D, hD, hsize, hcorrect, ?_⟩
+  intro E hE hEs hEc
+  rw [hd]
+  exact Nat.find_min' hex ⟨E, hE, hEs, hEc, rfl⟩
+
+theorem least_dirt_forces_first_star_edge {n : ℕ}
+    (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (hca : c ≠ a) (hcb : c ≠ b)
+    (gs : List Gate) (out : ℕ)
+    (hmono : PEqualNP.MetaComplexity.Monotone2 (original a b c gs out))
+    (hc : ∀ x, (original a b c gs out).eval (List.ofFn x) = target G x)
+    (hmin : ∀ E : Circuit, PEqualNP.MetaComplexity.Monotone2 E →
+      E.size = (original a b c gs out).size →
+      (∀ x, E.eval (List.ofFn x) = target G x) →
+      dirt G (original a b c gs out).size (original a b c gs out) ≤
+        dirt G (original a b c gs out).size E) : G.Adj c a := by
+  by_contra hbad
+  have hg : ∀ g ∈ gs, (g.op = GateOp.and ∨ g.op = GateOp.or) ∧ g.inputs.length ≤ 2 := by
+    intro g hmem
+    have h := hmono g (by simp [original, hmem])
+    simpa only [Set.mem_insert_iff, Set.mem_singleton_iff] using h
+  obtain ⟨hsize, hm, hcorrect⟩ := same_size_circuit_cleaning G a b c hca hcb hbad gs out hg hc
+  have hle := hmin (cleaned G a b c gs out) hm hsize hcorrect
+  have hlt := early_star_strictly_reduces_dirt G a b c hcb hbad gs out (fun g h => (hg g h).1)
+  have hs : (original a b c gs out).size = gs.length + 2 := by simp [original, Circuit.size]
+  rw [hs] at hle
+  omega
+
+lemma original_eval_swap {n : ℕ} (a b c : Fin n) (gs : List Gate) (out : ℕ)
+    (x : Fin n → Bool) : (original a b c gs out).eval (List.ofFn x) =
+      (original b a c gs out).eval (List.ofFn x) := by
+  rw [original_eval, original_eval]
+  simp only [continuation, star, Bool.or_comm (x a) (x b)]
+
+lemma dirt_original_swap {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (k : ℕ) (a b c : Fin n) (gs : List Gate) (out : ℕ) :
+    dirt G k (original a b c gs out) = dirt G k (original b a c gs out) := by
+  unfold dirt
+  congr 1
+  ext p
+  simp only [negativeActivations, Finset.mem_filter, Finset.mem_univ, true_and]
+  have h : ((original a b c gs out).wires (List.ofFn p.1)).getD p.2 false =
+      ((original b a c gs out).wires (List.ofFn p.1)).getD p.2 false :=
+    original_eval_swap a b c gs p.2 p.1
+  rw [h]
+
+theorem least_dirt_forces_both_star_edges {n : ℕ}
+    (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (a b c : Fin n) (hca : c ≠ a) (hcb : c ≠ b)
+    (gs : List Gate) (out : ℕ)
+    (hmono : PEqualNP.MetaComplexity.Monotone2 (original a b c gs out))
+    (hc : ∀ x, (original a b c gs out).eval (List.ofFn x) = target G x)
+    (hmin : ∀ E : Circuit, PEqualNP.MetaComplexity.Monotone2 E →
+      E.size = (original a b c gs out).size →
+      (∀ x, E.eval (List.ofFn x) = target G x) →
+      dirt G (original a b c gs out).size (original a b c gs out) ≤
+        dirt G (original a b c gs out).size E) : G.Adj c a ∧ G.Adj c b := by
+  refine ⟨least_dirt_forces_first_star_edge G a b c hca hcb gs out hmono hc hmin, ?_⟩
+  apply least_dirt_forces_first_star_edge G b a c hcb hca gs out
+  · intro g hg
+    simp only [original, List.mem_cons] at hg
+    rcases hg with rfl | rfl | hg
+    · simp
+    · simp
+    · exact hmono g (by simp [original, hg])
+  · intro x
+    rw [← original_eval_swap a b c gs out x]
+    exact hc x
+  · intro E hE hs hEc
+    have h := hmin E hE hs hEc
+    rw [dirt_original_swap G _ a b c gs out] at h
+    exact h
+
+theorem exists_early_star_normal_form {n : ℕ}
+    (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
+    (C : Circuit) (hmono : PEqualNP.MetaComplexity.Monotone2 C)
+    (hc : ∀ x, C.eval (List.ofFn x) = target G x) :
+    ∃ D : Circuit, PEqualNP.MetaComplexity.Monotone2 D ∧ D.size = C.size ∧
+      (∀ x, D.eval (List.ofFn x) = target G x) ∧
+      ∀ (a b c : Fin n), c ≠ a → c ≠ b → ∀ (gs : List Gate) (out : ℕ),
+        D = original a b c gs out → G.Adj c a ∧ G.Adj c b := by
+  obtain ⟨D, hm, hs, hcD, hmin⟩ := exists_least_dirt G C hmono hc
+  refine ⟨D, hm, hs, hcD, ?_⟩
+  intro a b c hca hcb gs out hD
+  subst D
+  apply least_dirt_forces_both_star_edges G a b c hca hcb gs out hm hcD
+  intro E hE hEs hEc
+  simpa only [hs] using hmin E hE (hEs.trans hs) hEc
+
 end PEqualNP.Outside.PairCleaning
