@@ -571,4 +571,57 @@ theorem affine_search_is_impossible : ¬ (∃ C : Circuit, ∃ o : Fin 3 → Fin
   have hstrict := count_gates_with_not affine_injective affine_separated C hf hu correct ng hn
   omega
 
+theorem triple_finsets_lower_bound
+    (S : Fin m → Finset (Fin n)) (hcard : ∀ l, (S l).card = 3)
+    (hlinear : ∀ l r, l ≠ r → (S l ∩ S r).card ≤ 1)
+    (C : Circuit) (out : Fin m → ℕ)
+    (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : OnlyOne C)
+    (he : ∀ (l : Fin m) (x : Fin n → Bool),
+      (C.wires (List.ofFn x)).getD (out l) false = decide (∃ v ∈ S l, x v = true)) :
+    2 * m ≤ C.gates.length ∧
+      ((∃ i : Fin C.gates.length, (C.gates.get i).op = GateOp.not) →
+        2 * m + 1 ≤ C.gates.length) := by
+  classical
+  let e (l : Fin m) : S l ≃ Fin 3 := Finset.equivFinOfCardEq (hcard l)
+  let p (l : Fin m) (c : Fin 3) : Fin n := ((e l).symm c).val
+  have pin (l : Fin m) (c : Fin 3) : p l c ∈ S l := ((e l).symm c).property
+  have pinj (l : Fin m) : Function.Injective (p l) := by
+    intro c d h
+    apply (e l).symm.injective
+    exact Subtype.ext h
+  have psep : ∀ (l r : Fin m) (c d : Fin 3), c ≠ d →
+      Inc p r (p l c) → Inc p r (p l d) → l = r := by
+    intro l r c d hcd hc hd
+    by_contra hne
+    obtain ⟨a, ha⟩ := hc
+    obtain ⟨b, hb⟩ := hd
+    have hcr : p l c ∈ S r := ha.symm ▸ pin r a
+    have hdr : p l d ∈ S r := hb.symm ▸ pin r b
+    have hsub : ({p l c, p l d} : Finset (Fin n)) ⊆ S l ∩ S r := by
+      intro v hv
+      simp only [Finset.mem_insert, Finset.mem_singleton] at hv
+      rcases hv with rfl | rfl
+      · exact Finset.mem_inter.mpr ⟨pin l c, hcr⟩
+      · exact Finset.mem_inter.mpr ⟨pin l d, hdr⟩
+    have htwo : ({p l c, p l d} : Finset (Fin n)).card = 2 :=
+      Finset.card_pair_eq_two_iff.mpr (fun hh => hcd (pinj l hh))
+    have hle := Finset.card_le_card hsub
+    have hsmall := hlinear l r hne
+    omega
+  have correct : ∀ l : Fin m, ∃ w : ℕ, Exact p l (wire C.gates w) := by
+    intro l
+    refine ⟨out l, ?_⟩
+    intro x
+    change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
+    rw [he, decide_eq_true_eq]
+    constructor
+    · rintro ⟨v, hv, hx⟩
+      refine ⟨e l ⟨v, hv⟩, ?_⟩
+      simpa [p] using hx
+    · rintro ⟨c, hc⟩
+      exact ⟨p l c, pin l c, hc⟩
+  refine ⟨count_gates pinj psep C hf hu correct, ?_⟩
+  rintro ⟨i, hi⟩
+  exact count_gates_with_not pinj psep C hf hu correct i hi
+
 end PEqualNP.Outside.LinearTripleFamily
