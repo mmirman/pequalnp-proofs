@@ -28,8 +28,10 @@ lemma correct : ∀ x : Fin 5 → Bool, circuit.eval (List.ofFn x) = target x :=
   decide +kernel
 
 lemma gates_are_monotone : PEqualNP.MetaComplexity.Monotone2 circuit := by
-  letI : DecidableEq GateOp := lineDegreeGateOpDecEq
-  decide +kernel
+  intro g hg
+  simp only [circuit, List.mem_cons, List.not_mem_nil, or_false] at hg
+  rcases hg with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    exact ⟨by simp, by decide⟩
 
 lemma size : circuit.size = 10 := by rfl
 
@@ -63,8 +65,7 @@ lemma no_and_factor_is_sound : ∀ j : Fin 10,
     (circuit.gates.get j).op = GateOp.and →
       ∀ w ∈ (circuit.gates.get j).inputs,
         ∃ x : Fin 5 → Bool, value x w = true ∧ target x = false := by
-  letI : DecidableEq GateOp := lineDegreeGateOpDecEq
-  decide +kernel
+  fin_cases j <;> simp [circuit] <;> decide +kernel
 
 lemma output_line_degree : circuit.lineDeg 5 {1, 2, 3, 4} = 4 := by
   decide +kernel
@@ -92,3 +93,68 @@ theorem not_a_least_circuit : shorter.size < circuit.size ∧
     rw [correct, shorter_correct]
 
 end PEqualNP.Outside.LineDegreeBarrier
+
+namespace PEqualNP.Outside.LineDegreeBarrier.Matching
+
+open PEqualNP.CircuitLowerBounds
+
+def target (x : Fin 6 → Bool) : Bool :=
+  (x 0 && x 1) || (x 2 && x 3) || (x 4 && x 5)
+
+def circuit : Circuit where
+  gates := [
+    ⟨.or, [0, 2]⟩, ⟨.or, [0, 3]⟩, ⟨.or, [1, 2]⟩, ⟨.or, [1, 3]⟩,
+    ⟨.or, [6, 4]⟩, ⟨.or, [6, 5]⟩, ⟨.or, [7, 4]⟩, ⟨.or, [7, 5]⟩,
+    ⟨.or, [8, 4]⟩, ⟨.or, [8, 5]⟩, ⟨.or, [9, 4]⟩, ⟨.or, [9, 5]⟩,
+    ⟨.and, [10, 11]⟩, ⟨.and, [12, 13]⟩,
+    ⟨.and, [14, 15]⟩, ⟨.and, [16, 17]⟩,
+    ⟨.and, [18, 19]⟩, ⟨.and, [20, 21]⟩, ⟨.and, [22, 23]⟩]
+  output := 24
+
+def value (x : Fin 6 → Bool) (w : ℕ) : Bool :=
+  (circuit.wires (List.ofFn x)).getD w false
+
+def bypass (j w : ℕ) : Circuit :=
+  ⟨circuit.gates.set j ⟨.or, [w, w]⟩, circuit.output⟩
+
+lemma correct : ∀ x : Fin 6 → Bool, circuit.eval (List.ofFn x) = target x := by
+  decide +kernel
+
+lemma gates_are_monotone : PEqualNP.MetaComplexity.Monotone2 circuit := by
+  intro g hg
+  simp only [circuit, List.mem_cons, List.not_mem_nil, or_false] at hg
+  rcases hg with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    exact ⟨by simp, by decide⟩
+
+set_option maxRecDepth 10000 in
+set_option maxHeartbeats 8000000 in
+lemma wires_are_distinct : ∀ i j : Fin 25,
+    (∀ x : Fin 6 → Bool, value x i = value x j) → i = j := by
+  decide +kernel
+
+set_option maxRecDepth 10000 in
+set_option maxHeartbeats 8000000 in
+theorem no_output_preserving_single_gate_bypass : ∀ j : Fin 19,
+    ∀ w ∈ (circuit.gates.get j).inputs,
+      ∃ x : Fin 6 → Bool, (bypass j.val w).eval (List.ofFn x) ≠ target x := by
+  decide +kernel
+
+lemma output_line_degree : circuit.lineDeg 6 {1, 3, 5} = 7 := by
+  decide +kernel
+
+def shorter : Circuit where
+  gates := [⟨.and, [0, 1]⟩, ⟨.and, [2, 3]⟩, ⟨.and, [4, 5]⟩,
+    ⟨.or, [6, 7]⟩, ⟨.or, [9, 8]⟩]
+  output := 10
+
+lemma shorter_correct : ∀ x : Fin 6 → Bool, shorter.eval (List.ofFn x) = target x := by
+  decide +kernel
+
+theorem not_a_least_circuit : shorter.size = 5 ∧ circuit.size = 19 ∧
+    ∀ x : Fin 6 → Bool, shorter.eval (List.ofFn x) = circuit.eval (List.ofFn x) := by
+  refine ⟨rfl, rfl, ?_⟩
+  intro x
+  rw [correct, shorter_correct]
+
+end PEqualNP.Outside.LineDegreeBarrier.Matching
