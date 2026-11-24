@@ -178,7 +178,8 @@ lemma hit_point (l : (Fin m)) (c : Fin 3) : hit point l (single (point l c)) :=
 
 lemma miss (l : (Fin m)) : ¬ hit point l (outside point l) := by
   rintro ⟨c, hc⟩
-  exact (of_decide_eq_true hc) ⟨c, rfl⟩
+  have hn : ¬ Inc point l (point l c) := of_decide_eq_true hc
+  exact hn ⟨c, rfl⟩
 
 def Low (point : Fin m → Fin 3 → Fin n) (l : (Fin m)) (f : ((Fin n → Bool) → Bool)) := ∀ x, f x = true → hit point l x
 def High (point : Fin m → Fin 3 → Fin n) (l : (Fin m)) (f : ((Fin n → Bool) → Bool)) := ∀ x, hit point l x → f x = true
@@ -203,7 +204,7 @@ lemma unique_line (hsep : ∀ (l r : Fin m) (c d : Fin 3), c ≠ d →
     · exact (hit_single _ _).1 (low _ hd)
   · have inc (j : Fin 3) : Inc point l (point m j) := by
       by_contra hh
-      have ht := high (outside point l) ⟨j, by simpa [outside point] using hh⟩
+      have ht := high (outside point l) ⟨j, by simpa [outside] using hh⟩
       simp [hf] at ht
     exact (same_line hsep m l 0 1 (by decide) (inc _) (inc _)).symm
 
@@ -301,7 +302,7 @@ def OnlyOne (C : Circuit) := ∀ i j : Fin C.gates.length,
 
 lemma not_falls (C : Circuit) (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : OnlyOne C)
     (k : ℕ) (hk : k < C.gates.length) (hop : C.gates[k].op = GateOp.not) :
-    Falls (wire C.gates (n+k)) := by
+    Falls (wire (n := n) C.gates (n+k)) := by
   have hm : ∀ g ∈ C.gates.take k, g.op = GateOp.and ∨ g.op = GateOp.or := by
     intro g hg
     obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hg
@@ -346,7 +347,7 @@ lemma earlier (C : Circuit) (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : Only
   have len := ha.2
   have eqn (x : (Fin n → Bool)) : wire C.gates (n+k) x =
       g.op.eval (g.inputs.map (fun i => prior C.gates k i x)) := wire_gate _ _ _ _
-  have bad (b : Bool) (h : ∀ x, wire C.gates (n+k) x = b) : False := by
+  have bad (b : Bool) (h : ∀ x : Fin n → Bool, wire C.gates (n+k) x = b) : False := by
     apply good_rises (exact_good he)
     intro x y _ ht
     rwa [h x, ← h y]
@@ -431,5 +432,109 @@ theorem count_gates (hinj : ∀ l, Function.Injective (point l)) (hsep : ∀ (l 
   have hle := Fintype.card_le_of_injective _ hinj
   simpa only [hc, Fintype.card_fin, Nat.mul_comm] using hle
 
+
+theorem count_gates_with_not
+    (hinj : ∀ l, Function.Injective (point l))
+    (hsep : ∀ (l r : Fin m) (c d : Fin 3), c ≠ d →
+      Inc point r (point l c) → Inc point r (point l d) → l = r) (C : Circuit) (hf : PEqualNP.MetaComplexity.FanInTwo C)
+    (hu : OnlyOne C)
+    (he : ∀ l : (Fin m), ∃ o : ℕ, Exact point l (wire C.gates o))
+    (ng : Fin C.gates.length) (hn : (C.gates.get ng).op = GateOp.not) :
+    2 * m + 1 ≤ C.gates.length := by
+  classical
+  choose o hout using he
+  choose i j hne hi hj using fun l => pair_gates hinj C hf hu l (o l) (hout l)
+  let pair (p : (Fin m) × Bool) := if p.2 then i p.1 else j p.1
+  have good (p : (Fin m) × Bool) : Good point p.1 (wire C.gates (n+(pair p).val)) := by
+    rcases p with ⟨l, b⟩
+    cases b
+    · exact hj l
+    · exact hi l
+  have pinj : Function.Injective pair := by
+    rintro ⟨l, b⟩ ⟨m, d⟩ h
+    have h1 := good (l, b)
+    rw [h] at h1
+    have hl : l = m := unique_line hsep h1 (good (m, d))
+    subst m
+    cases b <;> cases d
+    · rfl
+    · exact (hne l h.symm).elim
+    · exact (hne l h).elim
+    · rfl
+  have pne (p : (Fin m) × Bool) : pair p ≠ ng := by
+    intro h
+    have hg := good p
+    rw [h] at hg
+    exact good_rises hg (not_falls C hf hu ng ng.isLt hn)
+  let idx : Option ((Fin m) × Bool) → Fin C.gates.length
+    | none => ng
+    | some p => pair p
+  have hinj : Function.Injective idx := by
+    intro a b h
+    cases a with
+    | none =>
+      cases b with
+      | none => rfl
+      | some q => exact (pne q h.symm).elim
+    | some p =>
+      cases b with
+      | none => exact (pne p h).elim
+      | some q => exact congrArg some (pinj h)
+  have hc : Fintype.card (Option ((Fin m) × Bool)) = m * 2 + 1 := by simp
+  have hle := Fintype.card_le_of_injective _ hinj
+  simpa only [hc, Fintype.card_fin, Nat.mul_comm] using hle
+
+theorem circuit_lower_bound
+    (hinj : ∀ l, Function.Injective (point l))
+    (hsep : ∀ (l r : Fin m) (c d : Fin 3), c ≠ d →
+      Inc point r (point l c) → Inc point r (point l d) → l = r)
+    (C : Circuit) (out : Fin m → ℕ)
+    (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : OnlyOne C)
+    (he : ∀ (l : Fin m) (x : Fin n → Bool),
+      (C.wires (List.ofFn x)).getD (out l) false = decide (hit point l x)) :
+    2 * m ≤ C.gates.length := by
+  apply count_gates hinj hsep C hf hu
+  intro l
+  refine ⟨out l, ?_⟩
+  intro x
+  change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
+  rw [he, decide_eq_true_eq]
+
+def affinePoint (l : Fin 9) (c : Fin 3) : Fin 9 :=
+  ⟨3 * c.val + ((⟨l.val / 3, by omega⟩ : Fin 3) * c +
+    (⟨l.val % 3, Nat.mod_lt _ (by decide)⟩ : Fin 3)).val, by omega⟩
+
+lemma affine_injective : ∀ l, Function.Injective (affinePoint l) := by
+  decide +kernel
+
+lemma affine_separated : ∀ (l r : Fin 9) (c d : Fin 3), c ≠ d →
+    Inc affinePoint r (affinePoint l c) →
+    Inc affinePoint r (affinePoint l d) → l = r := by
+  decide +kernel
+
+theorem affine_lower_bound (C : Circuit) (out : Fin 9 → ℕ)
+    (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : OnlyOne C)
+    (he : ∀ (l : Fin 9) (x : Fin 9 → Bool),
+      (C.wires (List.ofFn x)).getD (out l) false = decide (hit affinePoint l x)) :
+    18 ≤ C.gates.length := by
+  apply count_gates affine_injective affine_separated C hf hu
+  intro l
+  refine ⟨out l, ?_⟩
+  intro x
+  change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
+  rw [he, decide_eq_true_eq]
+
+theorem affine_lower_bound_with_not (C : Circuit) (out : Fin 9 → ℕ)
+    (hf : PEqualNP.MetaComplexity.FanInTwo C) (hu : OnlyOne C)
+    (he : ∀ (l : Fin 9) (x : Fin 9 → Bool),
+      (C.wires (List.ofFn x)).getD (out l) false = decide (hit affinePoint l x))
+    (ng : Fin C.gates.length) (hn : (C.gates.get ng).op = GateOp.not) :
+    19 ≤ C.gates.length := by
+  apply count_gates_with_not affine_injective affine_separated C hf hu ?_ ng hn
+  intro l
+  refine ⟨out l, ?_⟩
+  intro x
+  change (C.wires (List.ofFn x)).getD (out l) false = true ↔ _
+  rw [he, decide_eq_true_eq]
 
 end PEqualNP.Outside.LinearTripleFamily
