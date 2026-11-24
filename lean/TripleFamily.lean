@@ -146,10 +146,10 @@ lemma wiresFrom_mono (gs : List Gate)
 
 variable {n m : ℕ}
 
-def Inc (point : Fin m → Fin 3 → Fin n) (l : Fin m) (p : Fin n) : Prop :=
+abbrev Inc (point : Fin m → Fin 3 → Fin n) (l : Fin m) (p : Fin n) : Prop :=
   ∃ c : Fin 3, p = point l c
 
-def hit (point : Fin m → Fin 3 → Fin n) (l : Fin m) (x : Fin n → Bool) : Prop :=
+abbrev hit (point : Fin m → Fin 3 → Fin n) (l : Fin m) (x : Fin n → Bool) : Prop :=
   ∃ c : Fin 3, x (point l c) = true
 
 def single (p : Fin n) : Fin n → Bool := fun k => decide (k = p)
