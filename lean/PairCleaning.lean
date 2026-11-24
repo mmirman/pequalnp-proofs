@@ -84,7 +84,7 @@ lemma pair_adj {n : ℕ} (G : SimpleGraph (Fin n)) (u v c d : Fin n)
   rcases hc with rfl | rfl <;> rcases hd with rfl | rfl
   · exact (hcd rfl).elim
   · exact huv
-  · exact G.symm huv
+  · exact G.adj_symm huv
   · exact (hcd rfl).elim
 
 lemma cleanStar_pairs {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
@@ -115,6 +115,7 @@ def ListBelow (xs ys : List Bool) : Prop :=
 
 lemma snoc_below {xs ys : List Bool} {b c : Bool} (h : ListBelow xs ys)
     (hbc : b = true → c = true) : ListBelow (xs ++ [b]) (ys ++ [c]) := by
+  have hlen := h.1
   refine ⟨by simp [h.1], ?_⟩
   intro i hi
   by_cases hil : i < xs.length
@@ -171,11 +172,11 @@ lemma continuation_positive {n : ℕ} (a b : Fin n) (gs : List Gate) (out : ℕ)
       ∀ s t, (s = true → t = true) →
         continuation a b gs out x s = true → continuation a b gs out y t = true := by
   intro x y hxy s t hst
-  have hab : x a || x b = true → y a || y b = true := by
+  have hab : (x a || x b) = true → (y a || y b) = true := by
     simp only [Bool.or_eq_true]
     exact fun h => h.elim (fun ha => Or.inl (hxy a ha)) (fun hb => Or.inr (hxy b hb))
   have h := run_mono gs hg (snoc_below (snoc_below (ofFn_below x y hxy) hab) hst)
-  simpa only [List.append_assoc, List.singleton_append, List.nil_append] using h.2 out
+  simpa only [continuation, List.append_assoc, List.singleton_append, List.nil_append] using h.2 out
 
 theorem two_gate_star_cleaning {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
     (a b c : Fin n) (hca : c ≠ a) (hcb : c ≠ b) (hbad : ¬ G.Adj c a)
